@@ -1,19 +1,21 @@
 /*
  * IGinX - the polystore system with high performance
  * Copyright (C) Tsinghua University
+ * TSIGinX@gmail.com
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package cn.edu.tsinghua.iginx.vectordb;
 
@@ -50,10 +52,13 @@ import cn.edu.tsinghua.iginx.thrift.StorageEngineType;
 import cn.edu.tsinghua.iginx.utils.Pair;
 import cn.edu.tsinghua.iginx.utils.StringUtils;
 import cn.edu.tsinghua.iginx.vectordb.entity.VectorDBQueryRowStream;
+import cn.edu.tsinghua.iginx.vectordb.support.PathSystem;
+import cn.edu.tsinghua.iginx.vectordb.support.impl.MilvusPathSystem;
 import cn.edu.tsinghua.iginx.vectordb.tools.*;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import io.milvus.pool.MilvusClientV2Pool;
+import io.milvus.v2.client.ConnectConfig;
 import io.milvus.v2.client.MilvusClientV2;
 import io.milvus.v2.service.collection.response.ListCollectionsResp;
 import io.milvus.v2.service.database.request.CreateDatabaseReq;
@@ -78,7 +83,8 @@ public class MilvusStorage implements IStorage {
 
   public static final int BATCH_SIZE = 10000;
 
-  //    private AbstractVectorDBMeta vectorDBMeta;
+  Map<String, PathSystem> pathSystemMap = new HashMap<>();
+
   /**
    * 获取存储引擎的连接 URL。
    *
@@ -107,21 +113,42 @@ public class MilvusStorage implements IStorage {
     }
     this.meta = meta;
     Map<String, String> extraParams = meta.getExtraParams();
+    LOGGER.info("init milvus url: " + getUrl(meta));
     this.milvusClientV2Pool =
         createPool(
             getUrl(meta),
             extraParams.get(USERNAME),
             extraParams.get(PASSWORD),
             MilvusClientPool.getPoolConfig(extraParams));
-    MilvusClientV2 client = null;
-    try {
-      client = milvusClientV2Pool.getClient(DEFAULT_KEY);
-      PathUtils.init(client);
-    } finally {
-      if (client != null) {
-        milvusClientV2Pool.returnClient(DEFAULT_KEY, client);
-      }
-    }
+    //    MilvusClientV2 client = null;
+    //    try {
+    //      for (int i = 0; i < 5; i++) {
+    //        client = milvusClientV2Pool.getClient(DEFAULT_KEY);
+    //        if (client != null) {
+    //          break;
+    //        }
+    //        try {
+    //          Thread.sleep(2000L);
+    //        } catch (InterruptedException e) {
+    //        }
+    //      }
+    //    } finally {
+    //      if (client != null) {
+    //        milvusClientV2Pool.returnClient(DEFAULT_KEY, client);
+    //      }
+    //    }
+
+    //    try {
+    //      Thread.sleep(10000);
+    //
+    //      ConnectConfig config =
+    // ConnectConfig.builder().uri("grpc://192.168.120.147:19530").build();
+    //      MilvusClientV2 client = new MilvusClientV2(config);
+    //      PathUtils.getPathSystem(client, pathSystem);
+    //    } catch (Exception e) {
+    //      e.printStackTrace();
+    //    }
+
   }
 
   //    private void createCollections(
@@ -159,6 +186,7 @@ public class MilvusStorage implements IStorage {
       List<Map<String, String>> tagsList,
       List<DataType> dataTypeList)
       throws InterruptedException {
+    client.useDatabase(NameUtils.escape(storageUnit));
     Map<String, Set<String>> collectionToFields = new HashMap<>();
     Map<String, DataType> fieldToType = new HashMap<>();
     Set<String> collections = new HashSet<>();
@@ -175,7 +203,8 @@ public class MilvusStorage implements IStorage {
       if (tagsList != null && !tagsList.isEmpty()) {
         tags = tagsList.get(i);
       }
-      Pair<String, String> collectionAndField = PathUtils.getCollectionAndFieldByPath(path, tags,false);
+      Pair<String, String> collectionAndField =
+          PathUtils.getCollectionAndFieldByPath(path, tags, false);
       collectionToFields
           .computeIfAbsent(collectionAndField.getK(), k -> new HashSet<>())
           .add(collectionAndField.getV());
@@ -191,9 +220,16 @@ public class MilvusStorage implements IStorage {
         //                        DataType.LONG);
       }
 
+      PathSystem pathSystem =
+          pathSystemMap.computeIfAbsent(storageUnit, s -> new MilvusPathSystem(storageUnit));
       Map<String, String> fields =
           MilvusClientUtils.addCollectionFields(
-              client, storageUnit, collection, collectionToFields.get(collection), fieldToType);
+              client,
+              storageUnit,
+              collection,
+              collectionToFields.get(collection),
+              fieldToType,
+              pathSystem);
     }
   }
 
@@ -255,7 +291,7 @@ public class MilvusStorage implements IStorage {
               switch (dataType) {
                 case BINARY:
                   row.addProperty(
-                      columnName, new String((byte[]) data.getValue(i, j), StandardCharsets.UTF_8));
+                      columnName, new String((byte[]) data.getValue(j, i), StandardCharsets.UTF_8));
                   empty = false;
                   break;
                 case BOOLEAN:
@@ -263,7 +299,7 @@ public class MilvusStorage implements IStorage {
                 case DOUBLE:
                 case INTEGER:
                 case FLOAT:
-                  row.addProperty(columnName, (Number) data.getValue(i, j));
+                  row.addProperty(columnName, (Number) data.getValue(j, i));
                   empty = false;
                   break;
                 default:
@@ -315,6 +351,8 @@ public class MilvusStorage implements IStorage {
       createOrAlterCollections(
           client, databaseName, data.getPaths(), data.getTagsList(), data.getDataTypeList());
 
+      PathSystem pathSystem =
+          pathSystemMap.computeIfAbsent(databaseName, s -> new MilvusPathSystem(databaseName));
       // 插入数据
       Map<String, List<JsonObject>> tableToRowEntries = new HashMap<>(); // <表名, 插入数据>
       int cnt = 0;
@@ -328,12 +366,17 @@ public class MilvusStorage implements IStorage {
             String path = data.getPath(j);
             DataType dataType = data.getDataType(j);
             Map<String, String> tags = data.getTags(j);
-            path = PathUtils.getPathSystem(client).findPath(path, tags);
+            path = PathUtils.getPathSystem(client, pathSystem).findPath(path, tags);
             String collectionName = path.substring(0, path.lastIndexOf("."));
             String columnName = path.substring(path.lastIndexOf(".") + 1);
             fields.add(columnName);
             JsonObject row = tableToRowEntry.computeIfAbsent(collectionName, k -> new JsonObject());
-            Object obj = data.getValue(i, j);
+            Object obj;
+            if (data instanceof RowDataView) {
+              obj = data.getValue(i, j);
+            } else {
+              obj = data.getValue(j, i);
+            }
             boolean added = MilvusClientUtils.addProperty(row, columnName, obj, dataType);
             if (!added) {
               tableToRowEntry.remove(collectionName);
@@ -354,7 +397,8 @@ public class MilvusStorage implements IStorage {
 
         for (Map.Entry<String, List<JsonObject>> entry : tableToRowEntries.entrySet()) {
           long count =
-              MilvusClientUtils.upsert(client, entry.getKey(), entry.getValue(), ids, fields);
+              MilvusClientUtils.upsert(
+                  client, databaseName, entry.getKey(), entry.getValue(), ids, fields, pathSystem);
           LOGGER.info("complete insertRows, insertCount:" + count);
         }
         cnt += size;
@@ -369,7 +413,15 @@ public class MilvusStorage implements IStorage {
   @Override
   public boolean testConnection(StorageEngineMeta meta) {
     MilvusClientV2 client = this.milvusClientV2Pool.getClient(DEFAULT_KEY);
-    return client == null;
+    return client != null;
+//    try {
+//      ConnectConfig config = ConnectConfig.builder().uri("grpc://127.0.0.1:19530").build();
+//      MilvusClientV2 client = new MilvusClientV2(config);
+//      return client != null;
+//    } catch (Exception e) {
+//      e.printStackTrace();
+//    }
+//    return false;
   }
 
   @Override
@@ -424,16 +476,24 @@ public class MilvusStorage implements IStorage {
                 String.format("cannot connect to database %s", databaseName)));
       }
 
+      PathSystem pathSystem =
+          pathSystemMap.computeIfAbsent(databaseName, s -> new MilvusPathSystem(databaseName));
       Map<String, Set<String>> collectionToFields =
           MilvusClientUtils.determinePaths(
-              client, project.getPatterns(), project.getTagFilter(), false);
+              client, project.getPatterns(), project.getTagFilter(), false, pathSystem);
       List<cn.edu.tsinghua.iginx.vectordb.entity.Column> columns = new ArrayList<>();
       for (Map.Entry<String, Set<String>> entry : collectionToFields.entrySet()) {
         String collectionName = entry.getKey();
         Set<String> fields = entry.getValue();
         columns.addAll(
             MilvusClientUtils.query(
-                client, databaseName, collectionName, new ArrayList<>(fields), filter, null));
+                client,
+                databaseName,
+                collectionName,
+                new ArrayList<>(fields),
+                filter,
+                null,
+                pathSystem));
       }
       return new TaskExecuteResult(new VectorDBQueryRowStream(columns, filter), null);
     } catch (Exception e) {
@@ -464,9 +524,10 @@ public class MilvusStorage implements IStorage {
     try {
       client = this.milvusClientV2Pool.getClient(DEFAULT_KEY);
 
+      PathSystem pathSystem = new MilvusPathSystem("");
       Map<String, Set<String>> collectionToFields =
           MilvusClientUtils.determinePaths(
-              client, project.getPatterns(), project.getTagFilter(), true);
+              client, project.getPatterns(), project.getTagFilter(), true, pathSystem);
       List<cn.edu.tsinghua.iginx.vectordb.entity.Column> columns = new ArrayList<>();
       for (Map.Entry<String, Set<String>> entry : collectionToFields.entrySet()) {
         String collectionName = entry.getKey();
@@ -480,7 +541,8 @@ public class MilvusStorage implements IStorage {
                 collectionName,
                 new ArrayList<>(fields),
                 filter,
-                project.getPatterns()));
+                project.getPatterns(),
+                pathSystem));
       }
       return new TaskExecuteResult(new VectorDBQueryRowStream(columns, filter), null);
     } catch (Exception e) {
@@ -522,12 +584,14 @@ public class MilvusStorage implements IStorage {
       List<String> paths = delete.getPatterns();
       TagFilter tagFilter = delete.getTagFilter();
 
+      PathSystem pathSystem =
+          pathSystemMap.computeIfAbsent(databaseName, s -> new MilvusPathSystem(databaseName));
       if (delete.getKeyRanges() == null || delete.getKeyRanges().isEmpty()) {
         if (paths.size() == 1 && paths.get(0).equals("*") && delete.getTagFilter() == null) {
           dropDatabase(client, databaseName);
         } else {
           Map<String, Set<String>> collectionToFields =
-              MilvusClientUtils.determinePaths(client, paths, tagFilter);
+              MilvusClientUtils.determinePaths(client, paths, tagFilter, pathSystem);
 
           for (Map.Entry<String, Set<String>> entry : collectionToFields.entrySet()) {
             String collectionName = entry.getKey();
@@ -537,14 +601,14 @@ public class MilvusStorage implements IStorage {
         }
       } else {
         Map<String, Set<String>> collectionToFields =
-            MilvusClientUtils.determinePaths(client, paths, tagFilter);
+            MilvusClientUtils.determinePaths(client, paths, tagFilter, pathSystem);
 
         for (Map.Entry<String, Set<String>> entry : collectionToFields.entrySet()) {
           String collectionName = entry.getKey();
           Set<String> fields = entry.getValue();
 
           for (KeyRange keyRange : delete.getKeyRanges()) {
-            deleteFieldsByRange(client, collectionName, fields, keyRange);
+            deleteFieldsByRange(client, collectionName, fields, keyRange, pathSystem);
           }
         }
       }
@@ -631,15 +695,17 @@ public class MilvusStorage implements IStorage {
         patterns.add("*");
       }
 
+      PathSystem pathSystem = new MilvusPathSystem("");
+      PathUtils.initAll(client, pathSystem);
       List<Column> columns = new ArrayList<>();
       for (String pattern : patterns) {
-        List<String> list = PathUtils.getPathSystem(client).findPaths(pattern, null);
+        List<String> list = PathUtils.getPathSystem(client, pathSystem).findPaths(pattern, null);
         for (String p : list) {
           Pair<String, Map<String, String>> pair = splitFullName(getPathAndVersion(p).getK());
           if (tagFilter != null && !TagKVUtils.match(pair.getV(), tagFilter)) {
             continue;
           }
-          columns.add(PathUtils.getPathSystem(client).getColumn(p));
+          columns.add(PathUtils.getPathSystem(client, pathSystem).getColumn(p));
         }
       }
       return columns;
@@ -659,7 +725,9 @@ public class MilvusStorage implements IStorage {
       TreeSet<String> paths = new TreeSet<>();
       client = this.milvusClientV2Pool.getClient(DEFAULT_KEY);
 
-      for (Column c : PathUtils.getPathSystem(client).getColumns().values()) {
+      PathSystem pathSystem = new MilvusPathSystem("");
+      PathUtils.initAll(client, pathSystem);
+      for (Column c : PathUtils.getPathSystem(client, pathSystem).getColumns().values()) {
         if (org.apache.commons.lang3.StringUtils.isNotEmpty(prefix)
             && org.apache.commons.lang3.StringUtils.isNotEmpty(c.getPath())
             && !c.getPath().startsWith(prefix)) {
@@ -688,7 +756,6 @@ public class MilvusStorage implements IStorage {
 
   @Override
   public void release() throws PhysicalException {
-    PathUtils.resetPathSystem();
     this.milvusClientV2Pool.clear();
     this.milvusClientV2Pool.close();
   }

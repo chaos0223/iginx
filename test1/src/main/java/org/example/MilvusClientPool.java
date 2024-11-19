@@ -17,18 +17,18 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package cn.edu.tsinghua.iginx.vectordb.tools;
-
-import static cn.edu.tsinghua.iginx.vectordb.tools.Constants.*;
+package org.example;
 
 import io.milvus.pool.MilvusClientV2Pool;
 import io.milvus.pool.PoolConfig;
 import io.milvus.v2.client.ConnectConfig;
-import java.time.Duration;
-import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.Map;
+
 
 /** MilvusClientPool 提供了一个静态方法来创建和管理 Milvus 客户端池。 这个类主要用于优化对 Milvus 服务的连接管理，通过池化技术减少频繁创建和销毁连接的开销。 */
 public class MilvusClientPool {
@@ -52,7 +52,7 @@ public class MilvusClientPool {
             .maxIdlePerKey(10) // 每个键的最大空闲连接数
             .maxTotalPerKey(20) // 每个键的最大总连接数
             .maxTotal(100) // 池中所有键的最大总连接数
-            .maxBlockWaitDuration(Duration.ofSeconds(5L)) // 获取连接的最大等待时间
+            .maxBlockWaitDuration(Duration.ofSeconds(60L)) // 获取连接的最大等待时间
             .minEvictableIdleDuration(Duration.ofSeconds(10L)) // 最小可驱逐的空闲时间
             .build();
 
@@ -103,20 +103,20 @@ public class MilvusClientPool {
     // 从参数映射中获取配置值，如果没有则使用默认值
     int maxIdlePerKey =
         Integer.parseInt(
-            params.getOrDefault(MAX_IDLE_PER_KEY, String.valueOf(DEFAULT_MAX_IDLE_PER_KEY)));
+            params.getOrDefault(10, String.valueOf(10)));
     int maxTotalPerKey =
         Integer.parseInt(
-            params.getOrDefault(MAX_TOTAL_PER_KEY, String.valueOf(DEFAULT_MAX_TOTAL_PER_KEY)));
+            params.getOrDefault(20, String.valueOf(20)));
     int maxTotal =
-        Integer.parseInt(params.getOrDefault(MAX_TOTAL, String.valueOf(DEFAULT_MAX_TOTAL)));
+        Integer.parseInt(params.getOrDefault(50, String.valueOf(50)));
     long maxBlockWaitDuration =
         Long.parseLong(
             params.getOrDefault(
-                MAX_BLOCK_WAIT_DURATION, String.valueOf(DEFAULT_MAX_BLOCK_WAIT_DURATION)));
+                    5L, String.valueOf(5L)));
     long minEvictableIdleDuration =
         Long.parseLong(
             params.getOrDefault(
-                MIN_EVICTABLE_IDLE_DURATION, String.valueOf(DEFAULT_MIN_EVICTABLE_IDLE_DURATION)));
+                    10L, String.valueOf(10L)));
 
     // 构建池配置
     PoolConfig poolConfig =

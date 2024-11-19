@@ -1,19 +1,21 @@
 /*
  * IGinX - the polystore system with high performance
  * Copyright (C) Tsinghua University
+ * TSIGinX@gmail.com
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package cn.edu.tsinghua.iginx.vectordb.tools;
 
@@ -30,17 +32,9 @@ import java.util.Map;
 
 public class PathUtils {
 
-  public static PathSystem pathSystem = null;
-
-  public static PathSystem dummyPathSystem = null;
-
-  public static void resetPathSystem() {
-    pathSystem = null;
-  }
-
-  public static PathSystem getPathSystem(MilvusClientV2 client) {
-    if (pathSystem == null) {
-      init(client);
+  public static PathSystem getPathSystem(MilvusClientV2 client, PathSystem pathSystem) {
+    if (!pathSystem.inited()) {
+      init(client, pathSystem);
     }
     return pathSystem;
   }
@@ -52,21 +46,40 @@ public class PathUtils {
   //        return dummyPathSystem;
   //    }
 
-  public static synchronized void init(MilvusClientV2 client) {
-    if (pathSystem != null) return;
-    pathSystem = new MilvusPathSystem();
-    for (String databaseName : MilvusClientUtils.listDatabase(client)) {
-      for (String collectionName : MilvusClientUtils.listCollections(client, databaseName)) {
-        Map<String, DataType> paths =
-            MilvusClientUtils.getCollectionPaths(client, databaseName, collectionName);
-        paths
-            .keySet()
-            .forEach(
-                path ->
-                    pathSystem.addPath(
-                        path, MilvusClientUtils.isDummy(databaseName), paths.get(path)));
+  private static void initDatabase(
+      MilvusClientV2 client, String databaseName, PathSystem pathSystem) {
+    for (String collectionName : MilvusClientUtils.listCollections(client, databaseName)) {
+      Map<String, DataType> paths =
+          MilvusClientUtils.getCollectionPaths(client, databaseName, collectionName);
+      paths
+          .keySet()
+          .forEach(
+              path ->
+                  pathSystem.addPath(
+                      path, MilvusClientUtils.isDummy(databaseName), paths.get(path)));
+    }
+  }
+
+  private static synchronized void init(MilvusClientV2 client, PathSystem pathSystem) {
+    if (!"".equals(pathSystem.getDatabaseName())) {
+      String databaseName = pathSystem.getDatabaseName();
+      initDatabase(client, databaseName, pathSystem);
+    } else {
+      for (String databaseName : MilvusClientUtils.listDatabase(client)) {
+        if (databaseName.startsWith(Constants.DATABASE_PREFIX)) {
+          continue;
+        }
+        initDatabase(client, databaseName, pathSystem);
       }
     }
+    pathSystem.setInited(true);
+  }
+
+  public static void initAll(MilvusClientV2 client, PathSystem pathSystem) {
+    for (String databaseName : MilvusClientUtils.listDatabase(client)) {
+      initDatabase(client, databaseName, pathSystem);
+    }
+    pathSystem.setInited(true);
   }
 
   //    public static synchronized void initDummy(){
@@ -98,7 +111,8 @@ public class PathUtils {
         .toString();
   }
 
-  public static String findPath(String path, Map<String, String> tags) {
+  public static String findPath(
+      String path, Map<String, String> tags, MilvusPathSystem pathSystem) {
     if (pathSystem == null) {
       return null;
     }

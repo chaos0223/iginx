@@ -1,19 +1,21 @@
 /*
  * IGinX - the polystore system with high performance
  * Copyright (C) Tsinghua University
+ * TSIGinX@gmail.com
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package cn.edu.tsinghua.iginx.vectordb.tools;
 
@@ -29,6 +31,7 @@ import cn.edu.tsinghua.iginx.engine.shared.operator.tag.TagFilter;
 import cn.edu.tsinghua.iginx.thrift.DataType;
 import cn.edu.tsinghua.iginx.utils.Pair;
 import cn.edu.tsinghua.iginx.vectordb.entity.Column;
+import cn.edu.tsinghua.iginx.vectordb.support.PathSystem;
 import com.google.gson.JsonObject;
 import com.google.gson.reflect.TypeToken;
 import io.milvus.orm.iterator.QueryIterator;
@@ -49,9 +52,12 @@ import io.milvus.v2.service.vector.response.UpsertResp;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MilvusClientUtils {
 
+  private static final Logger LOGGER = LoggerFactory.getLogger(MilvusClientUtils.class);
   private static final boolean isDummyEscape = true;
 
   public static List<String> listDatabase(MilvusClientV2 client) {
@@ -79,7 +85,7 @@ public class MilvusClientUtils {
     List<String> result = new ArrayList<>();
     list.forEach(
         s -> {
-          if (isDummy(databaseName)&& !isDummyEscape) {
+          if (isDummy(databaseName) && !isDummyEscape) {
             result.add(s);
           } else {
             result.add(NameUtils.unescape(s));
@@ -96,7 +102,7 @@ public class MilvusClientUtils {
       MilvusClientV2 client, String dbName, String collection) {
     final String databaseName;
     final String collectionName;
-    if (isDummy(dbName)&& !isDummyEscape) {
+    if (isDummy(dbName) && !isDummyEscape) {
       databaseName = dbName;
       collectionName = collection;
     } else {
@@ -144,9 +150,7 @@ public class MilvusClientUtils {
     return paths;
   }
 
-
-  public static void createDatabase(MilvusClientV2 client, String databaseName)
-  {
+  public static void createDatabase(MilvusClientV2 client, String databaseName) {
     client.createDatabase(CreateDatabaseReq.builder().databaseName(databaseName).build());
   }
 
@@ -300,7 +304,8 @@ public class MilvusClientUtils {
       String databaseName,
       String collectionName,
       Set<String> fieldsToAdd,
-      Map<String, DataType> fieldTypes) {
+      Map<String, DataType> fieldTypes,
+      PathSystem pathSystem) {
     DescribeCollectionResp resp =
         client.describeCollection(
             DescribeCollectionReq.builder()
@@ -333,7 +338,9 @@ public class MilvusClientUtils {
 
     Map<String, String> result = new HashMap<>();
     AlterCollectionReq.AlterCollectionReqBuilder alterCollectionReqBuilder =
-        AlterCollectionReq.builder().collectionName(NameUtils.escape(collectionName));
+        AlterCollectionReq.builder()
+            .databaseName(NameUtils.escape(databaseName))
+            .collectionName(NameUtils.escape(collectionName));
     boolean added = false;
     for (String f : fieldsToAdd) {
       if (fields.containsKey(f)) {
@@ -354,7 +361,7 @@ public class MilvusClientUtils {
         map.put(Constants.KEY_PROPERTY_FIELD_DATA_TYPE, fieldTypes.get(f).name());
         alterCollectionReqBuilder.property(
             DYNAMIC_FIELDS_PROPERTIES_PREFIX + f, JsonUtils.toJson(map));
-        PathUtils.getPathSystem(client)
+        PathUtils.getPathSystem(client, pathSystem)
             .addPath(
                 PathUtils.getPathUnescaped(databaseName, collectionName, newFieldName),
                 false,
@@ -369,7 +376,7 @@ public class MilvusClientUtils {
         map.put(Constants.KEY_PROPERTY_FIELD_DATA_TYPE, fieldTypes.get(f).name());
         alterCollectionReqBuilder.property(
             DYNAMIC_FIELDS_PROPERTIES_PREFIX + f, JsonUtils.toJson(map));
-        PathUtils.getPathSystem(client)
+        PathUtils.getPathSystem(client, pathSystem)
             .addPath(
                 PathUtils.getPathUnescaped(databaseName, collectionName, f),
                 false,
@@ -435,11 +442,15 @@ public class MilvusClientUtils {
 
   public static long upsert(
       MilvusClientV2 client,
+      String databaseName,
       String collectionName,
       List<JsonObject> data,
       List<Object> ids,
-      Set<String> fields) {
-    List<String> paths = PathUtils.getPathSystem(client).findPaths(collectionName, null);
+      Set<String> fields,
+      PathSystem pathSystem)
+      throws InterruptedException {
+    List<String> paths =
+        PathUtils.getPathSystem(client, pathSystem).findPaths(collectionName, null);
 
     Set<String> fieldList = new HashSet<>();
     for (String path : paths) {
@@ -451,9 +462,10 @@ public class MilvusClientUtils {
     for (String path : paths) {
       fieldToDataType.put(
           NameUtils.escape(path.substring(path.lastIndexOf(".") + 1)),
-          PathUtils.getPathSystem(client).getColumn(path).getDataType());
+          PathUtils.getPathSystem(client, pathSystem).getColumn(path).getDataType());
     }
 
+    client.useDatabase(NameUtils.escape(databaseName));
     GetReq getReq =
         GetReq.builder()
             .collectionName(NameUtils.escape(collectionName))
@@ -522,10 +534,14 @@ public class MilvusClientUtils {
    * @return
    */
   public static Map<String, Set<String>> determinePaths(
-      MilvusClientV2 client, List<String> paths, TagFilter tagFilter, boolean isDummy) {
+      MilvusClientV2 client,
+      List<String> paths,
+      TagFilter tagFilter,
+      boolean isDummy,
+      PathSystem pathSystem) {
     Set<String> pathSet = new HashSet<>();
     for (String path : paths) {
-      for (String p : PathUtils.getPathSystem(client).findPaths(path, null)) {
+      for (String p : PathUtils.getPathSystem(client, pathSystem).findPaths(path, null)) {
         Pair<String, Map<String, String>> columnToTags = splitFullName(getPathAndVersion(p).getK());
         if (tagFilter != null
             && !cn.edu.tsinghua.iginx.engine.physical.storage.utils.TagKVUtils.match(
@@ -533,7 +549,7 @@ public class MilvusClientUtils {
           continue;
         }
         cn.edu.tsinghua.iginx.engine.physical.storage.domain.Column c =
-            PathUtils.getPathSystem(client).getColumn(p);
+            PathUtils.getPathSystem(client, pathSystem).getColumn(p);
         if (isDummy && c != null && c.isDummy()) {
           pathSet.add(p);
         } else {
@@ -552,15 +568,20 @@ public class MilvusClientUtils {
   }
 
   public static Map<String, Set<String>> determinePaths(
-      MilvusClientV2 client, List<String> paths, TagFilter tagFilter) {
-    return determinePaths(client, paths, tagFilter, false);
+      MilvusClientV2 client, List<String> paths, TagFilter tagFilter, PathSystem pathSystem) {
+    return determinePaths(client, paths, tagFilter, false, pathSystem);
   }
 
   public static int deleteFieldsByRange(
-      MilvusClientV2 client, String collectionName, Set<String> fields, KeyRange keyRange) {
+      MilvusClientV2 client,
+      String collectionName,
+      Set<String> fields,
+      KeyRange keyRange,
+      PathSystem pathSystem) {
     int deleteCount = 0;
 
-    List<String> paths = PathUtils.getPathSystem(client).findPaths(collectionName, null);
+    List<String> paths =
+        PathUtils.getPathSystem(client, pathSystem).findPaths(collectionName, null);
 
     Set<String> fieldList = new HashSet<>();
     for (String path : paths) {
@@ -612,12 +633,13 @@ public class MilvusClientUtils {
       String collectionName,
       List<String> fields,
       Filter filter,
-      List<String> patterns)
+      List<String> patterns,
+      PathSystem pathSystem)
       throws InterruptedException {
     String databaseNameEscaped;
     String collectionNameEscaped;
 
-    if (isDummy(databaseName)&& !isDummyEscape) {
+    if (isDummy(databaseName) && !isDummyEscape) {
       databaseNameEscaped = databaseName;
       collectionNameEscaped = collectionName;
     } else {
@@ -626,10 +648,15 @@ public class MilvusClientUtils {
     }
 
     client.useDatabase(databaseNameEscaped);
-    if (!client.getLoadState(
-        GetLoadStateReq.builder().collectionName(collectionNameEscaped).build())) {
-      client.loadCollection(
-          LoadCollectionReq.builder().collectionName(collectionNameEscaped).build());
+    try {
+      if (!client.getLoadState(
+          GetLoadStateReq.builder().collectionName(collectionNameEscaped).build())) {
+        client.loadCollection(
+            LoadCollectionReq.builder().collectionName(collectionNameEscaped).build());
+      }
+    } catch (Exception e) {
+      LOGGER.error("load collection error", e);
+      return new ArrayList<>();
     }
 
     String primaryFieldName =
@@ -658,7 +685,7 @@ public class MilvusClientUtils {
       queryReqBuilder.filter(filterStr.toString());
     }
     List<String> fieldsEscaped;
-    if (isDummy(databaseName)&& !isDummyEscape) {
+    if (isDummy(databaseName) && !isDummyEscape) {
       fieldsEscaped = fields;
     } else {
       fieldsEscaped = fields.stream().map(NameUtils::escape).collect(Collectors.toList());
@@ -683,7 +710,7 @@ public class MilvusClientUtils {
         }
 
         String path;
-        if (isDummy(databaseName)&& !isDummyEscape) {
+        if (isDummy(databaseName) && !isDummyEscape) {
           path = PathUtils.getPathUnescaped(databaseName, collectionName, key);
         } else {
           path = PathUtils.getPathUnescaped(databaseName, collectionName, NameUtils.unescape(key));
@@ -713,29 +740,26 @@ public class MilvusClientUtils {
     List<Column> columns = new ArrayList<>();
     for (Map.Entry<String, Map<Long, Object>> entry : pathToMap.entrySet()) {
       DataType type = pathToDataType.get(entry.getKey());
-      if (type == null && PathUtils.getPathSystem(client).getColumn(entry.getKey()) != null) {
-        type = PathUtils.getPathSystem(client).getColumn(entry.getKey()).getDataType();
+      if (type == null
+          && PathUtils.getPathSystem(client, pathSystem).getColumn(entry.getKey()) != null) {
+        type = PathUtils.getPathSystem(client, pathSystem).getColumn(entry.getKey()).getDataType();
       }
       Column column =
           new Column(entry.getKey().replaceAll("\\[\\[(\\d+)\\]\\]", ""), type, entry.getValue());
+
       columns.add(column);
     }
 
     return columns;
   }
 
-
-  public static long upsert(
-          MilvusClientV2 client,
-          String collectionName,
-          List<JsonObject> data) {
+  public static long upsert(MilvusClientV2 client, String collectionName, List<JsonObject> data) {
     UpsertResp resp =
-            client.upsert(
-                    UpsertReq.builder()
-                            .collectionName(NameUtils.escape(collectionName))
-                            .data(data)
-                            .build());
+        client.upsert(
+            UpsertReq.builder()
+                .collectionName(NameUtils.escape(collectionName))
+                .data(data)
+                .build());
     return resp.getUpsertCnt();
   }
-
 }

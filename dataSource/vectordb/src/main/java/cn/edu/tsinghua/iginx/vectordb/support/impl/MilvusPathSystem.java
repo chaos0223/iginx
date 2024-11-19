@@ -1,19 +1,21 @@
 /*
  * IGinX - the polystore system with high performance
  * Copyright (C) Tsinghua University
+ * TSIGinX@gmail.com
  *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 3 of the License, or (at your option) any later version.
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 package cn.edu.tsinghua.iginx.vectordb.support.impl;
 
@@ -32,11 +34,23 @@ public class MilvusPathSystem implements PathSystem {
   private static final String END = "$$END$$";
   private static final String STAR = "*";
 
+  private boolean inited = false;
+
   /** 存储所有路径 key 为完整路径，未转义，带TagKV及版本号，value 为TagKV */
   private final Map<String, Map<String, ?>> paths = new HashMap<>();
 
   /** 存储所有路径对应的列信息 key 为完整路径，未转义，带TagKV及版本号 */
   private final Map<String, Column> columns = new HashMap<>();
+
+  private final String databaseName;
+
+  public MilvusPathSystem(String databaseName) {
+    this.databaseName = databaseName;
+  }
+
+  public String getDatabaseName() {
+    return databaseName;
+  }
 
   // 添加路径到存储中
   public void addPath(String path, boolean isDummy, DataType type) {
@@ -248,6 +262,15 @@ public class MilvusPathSystem implements PathSystem {
   public String findCollection(String path) {
     String[] parts = path.split("\\" + Constants.PATH_SEPARATOR);
     return findCollectionRecursive(parts, 0, "", paths);
+  }
+
+  @Override
+  public boolean inited() {
+    return inited;
+  }
+
+  public void setInited(boolean inited) {
+    this.inited = inited;
   }
 
   private String findPathRecursive(

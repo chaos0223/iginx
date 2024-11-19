@@ -17,13 +17,41 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package cn.edu.tsinghua.iginx.vectordb.datatype.transformer;
+package org.example;
 
-import cn.edu.tsinghua.iginx.thrift.DataType;
+import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
-public interface IDataTypeTransformer {
+public class MilvusTestTest extends TestCase {
 
-  public DataType fromEngineType(String dataType);
+    MilvusTest test;
+    @Before
+    public void setUp() {
+        test = new MilvusTest();
+        try {
+            test.create();
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
-  public String toEngineType(DataType dataType);
+    @After
+    public void tearDown() throws InterruptedException {
+        test.drop();
+        test.close();
+    }
+
+
+
+    @Test
+    public void testSearch() throws InterruptedException {
+        long r = test.insert();
+        assertEquals(r, 10);
+        System.out.println("insert test ok");
+        long r1= test.search();
+        assertEquals(r1, 10);
+        System.out.println("search test ok");
+    }
 }
