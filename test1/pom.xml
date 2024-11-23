@@ -62,10 +62,16 @@
             <artifactId>commons-lang3</artifactId>
             <version>3.14.0</version>
         </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.slf4j</groupId>-->
+<!--            <artifactId>slf4j-api</artifactId>-->
+<!--            <version>1.7.36</version>-->
+<!--        </dependency>-->
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.36</version>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <version>3.9.2</version>
+            <scope>compile</scope>
         </dependency>
     </dependencies>
 </project>

@@ -53,6 +53,27 @@ public class DataTransformer {
     }
   }
 
+  public static Object objToDeterminedType(Object value, DataType type) {
+    if (value == null) {
+      return null;
+    }
+    switch (type) {
+      case BOOLEAN:
+        return value;
+      case INTEGER:
+        return ((Number) value).intValue();
+      case LONG:
+        return ((Number) value).longValue();
+      case FLOAT:
+        return ((Number) value).floatValue();
+      case DOUBLE:
+        return ((Number) value).doubleValue();
+      case BINARY:
+      default:
+        return value;
+    }
+  }
+
   public static DataType fromStringDataType(String dataType) {
     if (dataType == null) {
       return null;
@@ -175,6 +196,9 @@ public class DataTransformer {
   }
 
   public static io.milvus.v2.common.DataType toMilvusDataType(DataType dataType) {
+    if (dataType == null) {
+      return io.milvus.v2.common.DataType.VarChar;
+    }
     switch (dataType) {
       case BOOLEAN:
         return io.milvus.v2.common.DataType.Bool;
@@ -205,6 +229,9 @@ public class DataTransformer {
     }
     if (obj instanceof Double) {
       return DataType.DOUBLE;
+    }
+    if (obj instanceof Integer) {
+      return DataType.INTEGER;
     }
     if (obj instanceof Number) {
       return DataType.LONG;

@@ -80,7 +80,13 @@ public class MilvusPathSystem implements PathSystem {
     }
   }
 
-  // 查找匹配给定模式的所有路径
+  /**
+   * 查找匹配给定模式的所有路径 返回所有符合条件的完整路径（含tagkv和版本号）
+   *
+   * @param pattern
+   * @param tagFilter
+   * @return
+   */
   public List<String> findPaths(String pattern, TagFilter tagFilter) {
     String[] parts = pattern.split("\\" + Constants.PATH_SEPARATOR);
     return findRecursive(parts, 0, "", paths, tagFilter);
@@ -124,7 +130,10 @@ public class MilvusPathSystem implements PathSystem {
       }
     } else {
       // 如果是指定的部分，则仅递归匹配的子节点
-      Map<String, Map<String, ?>> nextLevel = (Map<String, Map<String, ?>>) currentLevel.get(part);
+      Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+      Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
+      Map<String, Map<String, ?>> nextLevel =
+          (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
       if (nextLevel != null) {
         results.addAll(
             findRecursive(
@@ -156,6 +165,9 @@ public class MilvusPathSystem implements PathSystem {
   private boolean isEqual(Map<?, ?> map1, Map<?, ?> map2) {
     if (isEmpty(map1) && isEmpty(map2)) {
       return true;
+    }
+    if (isEmpty(map1) || isEmpty(map2)) {
+      return false;
     }
     if (map1.size() != map2.size()) {
       return false;
@@ -207,7 +219,22 @@ public class MilvusPathSystem implements PathSystem {
     if (index == parts.length) {
       // 到达路径的最后一层，删除 "END" 标记
       if (currentLevel.containsKey(END)) {
-        currentLevel.remove(END);
+        String part = parts[index - 1];
+        Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+        Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
+        Map<String, Map<String, String>> ps =
+            (Map<String, Map<String, String>>) currentLevel.get(END);
+
+        Iterator<Map.Entry<String, Map<String, String>>> iterator = ps.entrySet().iterator();
+        while (iterator.hasNext()) {
+          Map.Entry<String, Map<String, String>> entry = iterator.next();
+          if (isEqual(entry.getValue(), pair.getV())) {
+            iterator.remove();
+          }
+        }
+        if (ps.size() == 0) {
+          currentLevel.remove(END);
+        }
         // 如果当前层级变为空，返回 true 表示可以删除上一层的引用
         return currentLevel.isEmpty();
       } else {
@@ -235,7 +262,10 @@ public class MilvusPathSystem implements PathSystem {
       return anyDeleted && currentLevel.isEmpty();
     } else {
       // 如果是指定的部分，则仅递归匹配的子节点
-      Map<String, Map<String, ?>> nextLevel = (Map<String, Map<String, ?>>) currentLevel.get(part);
+      Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+      Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
+      Map<String, Map<String, ?>> nextLevel =
+          (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
       if (nextLevel == null) {
         // 路径不存在
         return false;
@@ -244,7 +274,7 @@ public class MilvusPathSystem implements PathSystem {
       // 递归删除下一层
       if (deleteRecursive(parts, index + 1, nextLevel)) {
         // 如果下一层变为空，删除当前层级的引用
-        currentLevel.remove(part);
+        currentLevel.remove(pair.getK());
         // 返回当前层级是否也变为空
         return currentLevel.isEmpty();
       }
@@ -299,7 +329,10 @@ public class MilvusPathSystem implements PathSystem {
     String part = parts[index];
 
     // 如果是指定的部分，则仅递归匹配的子节点
-    Map<String, Map<String, ?>> nextLevel = (Map<String, Map<String, ?>>) currentLevel.get(part);
+    Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+    Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
+    Map<String, Map<String, ?>> nextLevel =
+        (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
     if (nextLevel != null) {
       return findPathRecursive(
           parts,
@@ -333,7 +366,10 @@ public class MilvusPathSystem implements PathSystem {
     String part = parts[index];
 
     // 如果是指定的部分，则仅递归匹配的子节点
-    Map<String, Map<String, ?>> nextLevel = (Map<String, Map<String, ?>>) currentLevel.get(part);
+    Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+    Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
+    Map<String, Map<String, ?>> nextLevel =
+        (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
     if (nextLevel != null) {
       return findCollectionRecursive(
           parts, index + 1, currentPath.isEmpty() ? part : currentPath + "." + part, nextLevel);

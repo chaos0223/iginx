@@ -20,11 +20,15 @@
 package cn.edu.tsinghua.iginx.vectordb.support.impl;
 
 import cn.edu.tsinghua.iginx.vectordb.support.NameSystem;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
 public class MilvusNameSystem implements NameSystem {
   private static final char ESCAPE_CHAR = '_';
+  private static final String ENCODE = "UTF-8";
   private static final Map<Character, String> escapeMap = new HashMap<>();
   private static final Map<String, Character> unescapeMap = new HashMap<>();
 
@@ -37,6 +41,8 @@ public class MilvusNameSystem implements NameSystem {
     escapeMap.put(']', "_5");
     escapeMap.put('-', "_6");
     escapeMap.put('=', "_7");
+    escapeMap.put('%', "_8");
+    escapeMap.put('+', "_9");
 
     for (Map.Entry<Character, String> entry : escapeMap.entrySet()) {
       unescapeMap.put(entry.getValue(), entry.getKey());
@@ -50,9 +56,13 @@ public class MilvusNameSystem implements NameSystem {
    * @return 转义后的字符串
    * @throws IllegalArgumentException 如果遇到不允许的字符
    */
-  public String escape(String input) throws IllegalArgumentException {
+  public String escape(String input) throws IllegalArgumentException, UnsupportedEncodingException {
+    if (input.matches("^[_0-9].*")) {
+      input = "_" + input;
+    }
+    String encoded = URLEncoder.encode(input, ENCODE);
     StringBuilder sb = new StringBuilder();
-    for (char c : input.toCharArray()) {
+    for (char c : encoded.toCharArray()) {
       if (Character.isLetterOrDigit(c)) {
         sb.append(c);
       } else if (escapeMap.containsKey(c)) {
@@ -86,6 +96,14 @@ public class MilvusNameSystem implements NameSystem {
         sb.append(input.charAt(i++));
       }
     }
-    return sb.toString();
+    try {
+      String output = URLDecoder.decode(sb.toString(), ENCODE);
+      if (output.startsWith("_")) {
+        return output.substring(1);
+      }
+      return output;
+    } catch (UnsupportedEncodingException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
