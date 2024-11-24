@@ -49,6 +49,8 @@ import cn.edu.tsinghua.iginx.thrift.StorageEngineType;
 import cn.edu.tsinghua.iginx.utils.Pair;
 import cn.edu.tsinghua.iginx.utils.StringUtils;
 import cn.edu.tsinghua.iginx.vectordb.entity.VectorDBQueryRowStream;
+import cn.edu.tsinghua.iginx.vectordb.pool.MilvusConnectPool;
+import cn.edu.tsinghua.iginx.vectordb.pool.MilvusConnectPoolConfig;
 import cn.edu.tsinghua.iginx.vectordb.support.PathSystem;
 import cn.edu.tsinghua.iginx.vectordb.support.impl.MilvusPathSystem;
 import cn.edu.tsinghua.iginx.vectordb.tools.*;
@@ -63,8 +65,7 @@ import org.slf4j.LoggerFactory;
 
 public class MilvusStorage implements IStorage {
 
-  /** Milvus 客户端池，用于管理与 Milvus 服务的连接。 */
-  //  private final MilvusClientV2Pool milvusClientV2Pool;
+  private MilvusConnectPool milvusConnectPool;
 
   private final StorageEngineMeta meta;
 
@@ -87,6 +88,24 @@ public class MilvusStorage implements IStorage {
       throw new StorageInitializationException("unexpected database: " + meta.getStorageEngine());
     }
     this.meta = meta;
+    Map<String, String> params = meta.getExtraParams();
+    String protocol = params.getOrDefault(DB_PROTOCOL, DEFAULT_DB_PROTOCOL);
+    int maxTotal =
+        Integer.parseInt(params.getOrDefault(MAX_TOTAL, String.valueOf(DEFAULT_MAX_TOTAL)));
+    int maxIdle = Integer.parseInt(params.getOrDefault(MAX_IDLE, String.valueOf(DEFAULT_MAX_IDLE)));
+    int minIdle = Integer.parseInt(params.getOrDefault(MIN_IDLE, String.valueOf(DEFAULT_MIN_IDLE)));
+
+    MilvusConnectPoolConfig config =
+        new MilvusConnectPoolConfig(
+            meta.getIp(),
+            meta.getPort(),
+            protocol,
+            params.get("username"),
+            params.get("password"),
+            maxIdle,
+            minIdle,
+            maxTotal);
+    this.milvusConnectPool = config.milvusConnectPool();
   }
 
   private Map<String, Map<String, String>> createOrAlterCollections(
@@ -244,15 +263,18 @@ public class MilvusStorage implements IStorage {
 
   @Override
   public boolean testConnection(StorageEngineMeta meta) {
-    //    MilvusClientV2 client = this.milvusClientV2Pool.getClient(DEFAULT_KEY);
-    //    return client != null;
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    //      return milvusClient.getClient() != null;
+    //    } catch (Exception e) {
+    //      e.printStackTrace();
+    //    }
+    //    return false;
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
       return milvusClient.getClient() != null;
     } catch (Exception e) {
       e.printStackTrace();
     }
     return false;
-    //    return this.client != null;
   }
 
   @Override
@@ -269,7 +291,8 @@ public class MilvusStorage implements IStorage {
   private TaskExecuteResult executeProjectWithFilter(
       Project project, Filter filter, DataArea dataArea) {
     String databaseName = dataArea.getStorageUnit();
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
       MilvusClientV2 client = milvusClient.getClient();
       if (client == null) {
         return new TaskExecuteResult(
@@ -304,7 +327,7 @@ public class MilvusStorage implements IStorage {
       LOGGER.error("unexpected error: ", e);
       return new TaskExecuteResult(
           new PhysicalTaskExecuteFailureException(
-              String.format("execute project task in milvus failure : %s"), e));
+              String.format("execute project task in milvus failure : %s",e)));
     }
   }
 
@@ -320,7 +343,8 @@ public class MilvusStorage implements IStorage {
   }
 
   private TaskExecuteResult executeProjectDummyWithFilter(Project project, Filter filter) {
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
+      //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
       MilvusClientV2 client = milvusClient.getClient();
       if (client == null) {
         return new TaskExecuteResult(
@@ -355,7 +379,7 @@ public class MilvusStorage implements IStorage {
       LOGGER.error("unexpected error: ", e);
       return new TaskExecuteResult(
           new PhysicalTaskExecuteFailureException(
-              String.format("execute project task in milvus failure, %s"), e));
+              String.format("execute project task in milvus failure, %s",e)));
     }
   }
 
@@ -379,7 +403,8 @@ public class MilvusStorage implements IStorage {
   @Override
   public TaskExecuteResult executeDelete(Delete delete, DataArea dataArea) {
     String databaseName = dataArea.getStorageUnit();
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
+      //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
       MilvusClientV2 client = milvusClient.getClient();
       List<String> paths = delete.getPatterns();
       TagFilter tagFilter = delete.getTagFilter();
@@ -429,14 +454,15 @@ public class MilvusStorage implements IStorage {
     } catch (Exception e) {
       LOGGER.error("unexpected error: ", e);
       return new TaskExecuteResult(
-          new PhysicalException(String.format("execute delete task in milvus failure: %s"), e));
+          new PhysicalException(String.format("execute delete task in milvus failure: %s", e)));
     }
   }
 
   @Override
   public TaskExecuteResult executeInsert(Insert insert, DataArea dataArea) {
     String databaseName = dataArea.getStorageUnit();
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
+      //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
       MilvusClientV2 client = milvusClient.getClient();
       DataView dataView = insert.getData();
       if (client == null) {
@@ -469,7 +495,8 @@ public class MilvusStorage implements IStorage {
   @Override
   public List<Column> getColumns(Set<String> patterns, TagFilter tagFilter)
       throws PhysicalException {
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
+      //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
       MilvusClientV2 client = milvusClient.getClient();
       if (patterns == null || patterns.size() == 0) {
         patterns = new HashSet<>();
@@ -500,7 +527,8 @@ public class MilvusStorage implements IStorage {
   @Override
   public Pair<ColumnsInterval, KeyInterval> getBoundaryOfStorage(String prefix)
       throws PhysicalException {
-    try (MilvusClient milvusClient = new MilvusClient(meta)) {
+    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
+      //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
       MilvusClientV2 client = milvusClient.getClient();
       ColumnsInterval columnsInterval;
       TreeSet<String> paths = new TreeSet<>();
@@ -533,9 +561,5 @@ public class MilvusStorage implements IStorage {
   }
 
   @Override
-  public void release() throws PhysicalException {
-    //    if (this.client != null) {
-    //      this.client.close();
-    //    }
-  }
+  public void release() throws PhysicalException {}
 }
