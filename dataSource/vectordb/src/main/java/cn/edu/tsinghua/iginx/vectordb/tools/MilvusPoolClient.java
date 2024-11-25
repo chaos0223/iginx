@@ -17,41 +17,35 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package org.example;
+package cn.edu.tsinghua.iginx.vectordb.tools;
 
-import junit.framework.TestCase;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import cn.edu.tsinghua.iginx.vectordb.pool.MilvusConnectPool;
+import io.milvus.v2.client.MilvusClientV2;
+import java.io.Closeable;
+import java.io.IOException;
 
-public class MilvusTest1Test extends TestCase {
+public class MilvusPoolClient implements Closeable {
 
-    MilvusTest1 test;
-    @Before
-    public void setUp() {
-        test = new MilvusTest1();
-        try {
-            test.create();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
+  private MilvusConnectPool milvusConnectPool;
+  private MilvusClientV2 client;
 
-    @After
-    public void tearDown() throws InterruptedException {
-        test.drop();
-        test.close();
-    }
+  public MilvusPoolClient(MilvusConnectPool milvusConnectPool) {
+    this.milvusConnectPool = milvusConnectPool;
+  }
 
+  /**
+   * 获取 Milvus 客户端实例。
+   *
+   * @return MilvusServiceClient 实例
+   */
+  public MilvusClientV2 getClient() throws Exception {
+    this.client = this.milvusConnectPool.getMilvusClient();
+    return client;
+  }
 
-
-    @Test
-    public void testSearch() throws InterruptedException {
-        long r = test.insert();
-        assertEquals(r, 10);
-        System.out.println("insert test ok");
-        long r1= test.search();
-        assertEquals(r1, 10);
-        System.out.println("search test ok");
-    }
+  /** 关闭连接。 */
+  @Override
+  public void close() throws IOException {
+    this.milvusConnectPool.releaseMilvusClient(client);
+  }
 }

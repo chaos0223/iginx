@@ -17,8 +17,8 @@ on:
                 description: "The operating system to run the test on"
                 type: string
                 required: false
-                #                default: '["ubuntu-latest", "macos-latest", "windows-latest"]'
                 default: '["ubuntu-latest"]'
+            #                default: '["ubuntu-latest", "macos-latest", "windows-latest"]'
             metadata-matrix:
                 description: "The metadata to run the test on"
                 type: string
@@ -33,7 +33,8 @@ on:
 
 jobs:
     Union-DB-Test:
-        timeout-minutes: 240
+        #        timeout-minutes: 40
+        timeout-minutes: 360
         strategy:
             fail-fast: false
             matrix:
@@ -50,6 +51,7 @@ jobs:
               with:
                   python-version: ${{ matrix.python-version }}
                   java: ${{ matrix.java }}
+                  docker-required: true
 
             - name: Run Metadata
               uses: ./.github/actions/metadataRunner
