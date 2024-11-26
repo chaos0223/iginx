@@ -19,9 +19,14 @@
 
 port=$1
 
-cd ${{ github.workspace }}/.github/actions/service/vectordb
+pwd
 
 docker-compose -f $port/docker-compose-$port.yml up -d
 
+echo "waiting for the server to start..."
+sleep 10
 docker ps
+docker logs milvus$port-standalone
+docker logs milvus$port-minio
+docker logs milvus$port-etcd
 
