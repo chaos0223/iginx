@@ -685,9 +685,11 @@ public abstract class BaseCapacityExpansionIT {
     testShowColumnsRemoveStorageEngine(true);
     List<RemovedStorageEngineInfo> removedStorageEngineList = new ArrayList<>();
     removedStorageEngineList.add(
-        new RemovedStorageEngineInfo("127.0.0.1", expPort, "p2" + schemaPrefixSuffix, dataPrefix1));
+        new RemovedStorageEngineInfo(
+            "127.0.0.1", expPort, "p2" + schemaPrefixSuffix, dataPrefix1));
     removedStorageEngineList.add(
-        new RemovedStorageEngineInfo("127.0.0.1", expPort, "p3" + schemaPrefixSuffix, dataPrefix1));
+        new RemovedStorageEngineInfo(
+            "127.0.0.1", expPort, "p3" + schemaPrefixSuffix, dataPrefix1));
     try {
       session.removeHistoryDataSource(removedStorageEngineList);
       testShowClusterInfo(4);

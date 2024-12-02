@@ -44,6 +44,7 @@ import io.milvus.v2.service.collection.request.*;
 import io.milvus.v2.service.collection.response.DescribeCollectionResp;
 import io.milvus.v2.service.database.request.CreateDatabaseReq;
 import io.milvus.v2.service.database.request.DropDatabaseReq;
+import io.milvus.v2.service.index.request.CreateIndexReq;
 import io.milvus.v2.service.vector.request.GetReq;
 import io.milvus.v2.service.vector.request.QueryIteratorReq;
 import io.milvus.v2.service.vector.request.QueryReq;
@@ -150,8 +151,7 @@ public class MilvusClientUtils {
     return paths;
   }
 
-  public static void createDatabase(MilvusClientV2 client, String databaseName) {
-    LOGGER.info("create database : {}", databaseName);
+  public static void doCreateDatabase(MilvusClientV2 client, String databaseName) {
     client.createDatabase(CreateDatabaseReq.builder().databaseName(databaseName).build());
   }
 
@@ -169,6 +169,10 @@ public class MilvusClientUtils {
     } catch (IllegalArgumentException e) {
       createDatabase(client, databaseName);
     }
+  }
+
+  public static void createDatabase(MilvusClientV2 client, String databaseName) {
+    doCreateDatabase(client, databaseName);
   }
 
   public static Map<String, String> getCollectionFields(
@@ -203,6 +207,21 @@ public class MilvusClientUtils {
     return fields;
   }
 
+//  public static void createCollection(
+//      MilvusClientV2 client, String databaseName, String collectionName, DataType idType)
+//      throws InterruptedException, UnsupportedEncodingException {
+//    String backupCollectionName = MilvusBackupThread.getBackupCollection(databaseName);
+//    if (backupCollectionName != null) {
+//      client.renameCollection(
+//          RenameCollectionReq.builder()
+//              .collectionName(backupCollectionName)
+//              .newCollectionName(collectionName)
+//              .build());
+//    } else {
+//      doCreateCollection(client, databaseName, collectionName, idType);
+//    }
+//  }
+
   public static void createCollection(
       MilvusClientV2 client, String databaseName, String collectionName, DataType idType)
       throws InterruptedException, UnsupportedEncodingException {
@@ -218,7 +237,6 @@ public class MilvusClientUtils {
       Map<String, DataType> fieldTypes)
       throws InterruptedException, UnsupportedEncodingException {
     useDatabase(client, databaseName);
-    LOGGER.info("create collection : {} {}", databaseName, collectionName);
     CreateCollectionReq.CreateCollectionReqBuilder builder =
         CreateCollectionReq.builder()
             .idType(DataTransformer.toMilvusDataType(idType))
@@ -268,8 +286,11 @@ public class MilvusClientUtils {
             .collectionSchema(schema)
             .primaryFieldName(MILVUS_PRIMARY_FIELD_NAME)
             .vectorFieldName(MILVUS_VECTOR_FIELD_NAME)
-            .indexParams(indexes)
+//            .indexParams(indexes)
             .build());
+
+    client.createIndex(CreateIndexReq.builder().collectionName(NameUtils.escape(collectionName)).indexParams(indexes).build());
+    client.loadCollection(LoadCollectionReq.builder().collectionName(NameUtils.escape(collectionName)).async(false).build());
   }
 
   /**
@@ -368,12 +389,6 @@ public class MilvusClientUtils {
       }
     }
     if (added) {
-      LOGGER.info(
-          "add collection fields ,database : {} , collection : {}, client : {}",
-          databaseName,
-          collectionName,
-          client);
-      LOGGER.info(alterCollectionReqBuilder.toString());
       client.alterCollection(alterCollectionReqBuilder.build());
     }
 
