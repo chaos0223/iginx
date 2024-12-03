@@ -47,7 +47,7 @@ public class Constants {
   public static final int DEFAULT_MAX_TOTAL_PER_KEY = 20;
 
   /** 默认池配置参数：池中所有键的最大总连接数。 */
-  public static final int DEFAULT_MAX_TOTAL = 100;
+  public static final int DEFAULT_MAX_TOTAL = 20;
 
   /** 默认池配置参数：获取连接的最大等待时间（秒）。 */
   public static final long DEFAULT_MAX_BLOCK_WAIT_DURATION = 5L;
@@ -55,12 +55,12 @@ public class Constants {
   /** 默认池配置参数：最小可驱逐的空闲时间（秒）。 */
   public static final long DEFAULT_MIN_EVICTABLE_IDLE_DURATION = 10L;
 
-  public static final int DEFAULT_MAX_IDLE = 20;
+  public static final int DEFAULT_MAX_IDLE = 10;
 
   public static final long DEFAULT_MILVUS_TIMEOUT = 600000L;
   public static final long DEFAULT_MILVUS_CONNECT_TIMEOUT = 20000L;
 
-  public static final int DEFAULT_MIN_IDLE = 10;
+  public static final int DEFAULT_MIN_IDLE = 5;
 
   /** 用户名参数的键。 */
   public static final String USERNAME = "username";
@@ -99,6 +99,8 @@ public class Constants {
   /** 非dummy数据库默认数据库前缀。 用于在 Milvus 中创建数据库的名称。 */
   public static final String DATABASE_PREFIX = "unit";
 
+  public static final String COLLECTION_BACKUP_PREFIX = "backup_";
+
   public static final Character QUOTA = '`';
 
   public static final String PATH_SEPARATOR = ".";
@@ -123,7 +125,11 @@ public class Constants {
 
   public static final String MILVUS_VECTOR_FIELD_NAME = "VECTORDBVECTOR";
 
+  public static final String MILVUS_DATA_FIELD_NAME = "VECTORDBDATA";
+
   public static final int MILVUS_INDEX_PARAM_NLIST = 8;
+
+  public static final long MILVUS_BATCH_SIZE = 10000L;
 
   public static final String MILVUS_DYNAMIC_FIELD_NAME = "$meta";
 

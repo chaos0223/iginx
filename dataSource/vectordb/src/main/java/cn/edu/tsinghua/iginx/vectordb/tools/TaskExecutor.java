@@ -17,13 +17,33 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
-package cn.edu.tsinghua.iginx.vectordb.datatype.transformer;
+package cn.edu.tsinghua.iginx.vectordb.tools;
 
-import cn.edu.tsinghua.iginx.thrift.DataType;
+import java.util.concurrent.*;
 
-public interface IDataTypeTransformer {
+public class TaskExecutor {
 
-  public DataType fromEngineType(String dataType);
+  private static ExecutorService executorService;
 
-  public String toEngineType(DataType dataType);
+  static {
+    int corePoolSize = 10;
+    int maximumPoolSize = 50;
+    long keepAliveTime = 60L;
+    TimeUnit unit = TimeUnit.SECONDS;
+    BlockingQueue<Runnable> workQueue = new LinkedBlockingQueue<>(100);
+    ThreadFactory threadFactory = Executors.defaultThreadFactory();
+    RejectedExecutionHandler handler = new ThreadPoolExecutor.CallerRunsPolicy();
+
+    executorService =
+        new ThreadPoolExecutor(
+            corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+  }
+
+  public static void execute(Runnable runnable) {
+    executorService.execute(runnable);
+  }
+
+  public static ExecutorService getExecutorService() {
+    return executorService;
+  }
 }
