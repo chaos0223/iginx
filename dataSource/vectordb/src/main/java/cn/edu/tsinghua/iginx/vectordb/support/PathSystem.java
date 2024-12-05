@@ -59,4 +59,6 @@ public interface PathSystem {
   void setInited(boolean inited);
 
   String getDatabaseName();
+
+  //  Set<String> getBackupCollections();
 }

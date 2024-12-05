@@ -28,6 +28,7 @@ import cn.edu.tsinghua.iginx.vectordb.tools.Constants;
 import cn.edu.tsinghua.iginx.vectordb.tools.NameUtils;
 import cn.edu.tsinghua.iginx.vectordb.tools.TagKVUtils;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class MilvusPathSystem implements PathSystem {
 
@@ -37,12 +38,15 @@ public class MilvusPathSystem implements PathSystem {
   private boolean inited = false;
 
   /** 存储所有路径 key 为完整路径，未转义，带TagKV及版本号，value 为TagKV */
-  private final Map<String, Map<String, ?>> paths = new HashMap<>();
+  private final Map<String, Map<String, ?>> paths = new ConcurrentHashMap<>();
 
   /** 存储所有路径对应的列信息 key 为完整路径，未转义，带TagKV及版本号 */
-  private final Map<String, Column> columns = new HashMap<>();
+  private final Map<String, Column> columns = new ConcurrentHashMap<>();
 
   private final String databaseName;
+
+  /** 备份collection名称，escaped */
+  //  private final Set<String> backupCollections = new ConcurrentHashSet<>();
 
   public MilvusPathSystem(String databaseName) {
     this.databaseName = databaseName;
@@ -58,7 +62,7 @@ public class MilvusPathSystem implements PathSystem {
     Map<String, Map<String, ?>> currentLevel = paths;
     Pair<String, Map<String, String>> pair = null;
     for (String part : parts) {
-      Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+      Pair<String, String> p = NameUtils.getPathAndVersion(part);
       pair = TagKVUtils.splitFullName(p.getK());
       currentLevel =
           (Map<String, Map<String, ?>>)
@@ -137,7 +141,7 @@ public class MilvusPathSystem implements PathSystem {
       }
     } else {
       // 如果是指定的部分，则仅递归匹配的子节点
-      Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+      Pair<String, String> p = NameUtils.getPathAndVersion(part);
       Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
       Map<String, Map<String, ?>> nextLevel =
           (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
@@ -227,7 +231,7 @@ public class MilvusPathSystem implements PathSystem {
       // 到达路径的最后一层，删除 "END" 标记
       if (currentLevel.containsKey(END)) {
         String part = parts[index - 1];
-        Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+        Pair<String, String> p = NameUtils.getPathAndVersion(part);
         Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
         Map<String, Map<String, String>> ps =
             (Map<String, Map<String, String>>) currentLevel.get(END);
@@ -269,7 +273,7 @@ public class MilvusPathSystem implements PathSystem {
       return anyDeleted && currentLevel.isEmpty();
     } else {
       // 如果是指定的部分，则仅递归匹配的子节点
-      Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+      Pair<String, String> p = NameUtils.getPathAndVersion(part);
       Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
       Map<String, Map<String, ?>> nextLevel =
           (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
@@ -336,7 +340,7 @@ public class MilvusPathSystem implements PathSystem {
     String part = parts[index];
 
     // 如果是指定的部分，则仅递归匹配的子节点
-    Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+    Pair<String, String> p = NameUtils.getPathAndVersion(part);
     Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
     Map<String, Map<String, ?>> nextLevel =
         (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
@@ -373,7 +377,7 @@ public class MilvusPathSystem implements PathSystem {
     String part = parts[index];
 
     // 如果是指定的部分，则仅递归匹配的子节点
-    Pair<String, Integer> p = NameUtils.getPathAndVersion(part);
+    Pair<String, String> p = NameUtils.getPathAndVersion(part);
     Pair<String, Map<String, String>> pair = TagKVUtils.splitFullName(p.getK());
     Map<String, Map<String, ?>> nextLevel =
         (Map<String, Map<String, ?>>) currentLevel.get(pair.getK());
@@ -383,4 +387,9 @@ public class MilvusPathSystem implements PathSystem {
     }
     return null;
   }
+
+  //  public Set<String> getBackupCollections() {
+  //    return backupCollections;
+  //  }
+
 }
