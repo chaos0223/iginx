@@ -237,7 +237,7 @@ public class MilvusStorage implements IStorage {
         DataType dataType = data.getDataType(j);
         String collectionName =
             collectionAndField.getK() + "." + collectionAndField.getV() + "[[" + dataType + "]]";
-        ;
+
         if (!collections.contains(NameUtils.escape(collectionName))) {
           MilvusClientUtils.createCollection(
               client,
@@ -445,7 +445,7 @@ public class MilvusStorage implements IStorage {
           "query {} {} result count : {} time cost : {}",
           databaseName,
           collectionToFields.keySet(),
-          columns.size(),
+          columns.size() > 0 ? columns.get(0).getData().size() : 0,
           System.currentTimeMillis() - startTime);
       return new TaskExecuteResult(new VectorDBQueryRowStream(columns, filter), null);
     } catch (Exception e) {
@@ -469,7 +469,6 @@ public class MilvusStorage implements IStorage {
 
   private TaskExecuteResult executeProjectDummyWithFilter(Project project, Filter filter) {
     try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
-      //    try (MilvusClient milvusClient = new MilvusClient(meta)) {
       MilvusClientV2 client = milvusClient.getClient();
       if (client == null) {
         return new TaskExecuteResult(
@@ -479,27 +478,48 @@ public class MilvusStorage implements IStorage {
       if (patterns == null) {
         patterns = Arrays.asList("*");
       }
-      //      PathSystem pathSystem = new MilvusPathSystem("");
       PathSystem pathSystem = pathSystemMap.computeIfAbsent("", s -> new MilvusPathSystem(""));
       Map<String, Set<String>> collectionToFields =
           MilvusClientUtils.determinePaths(
               client, patterns, project.getTagFilter(), true, pathSystem);
       List<cn.edu.tsinghua.iginx.vectordb.entity.Column> columns = new ArrayList<>();
+
+      ExecutorCompletionService<List<cn.edu.tsinghua.iginx.vectordb.entity.Column>>
+          completionService = new ExecutorCompletionService<>(TaskExecutor.getExecutorService());
       for (Map.Entry<String, Set<String>> entry : collectionToFields.entrySet()) {
         String collectionName = entry.getKey();
         String databaseName = collectionName.substring(0, collectionName.indexOf("."));
         collectionName = collectionName.substring(collectionName.indexOf(".") + 1);
         Set<String> fields = entry.getValue();
-        columns.addAll(
-            MilvusClientUtils.query(
-                client,
-                databaseName,
-                collectionName,
-                new ArrayList<>(fields),
-                filter,
-                patterns,
-                pathSystem));
+
+        String finalCollectionName = collectionName;
+        List<String> finalPatterns = patterns;
+        Callable<List<cn.edu.tsinghua.iginx.vectordb.entity.Column>> task =
+            () -> {
+              try (MilvusPoolClient c = new MilvusPoolClient(this.milvusConnectPool)) {
+                return MilvusClientUtils.query(
+                    c.getClient(),
+                    databaseName,
+                    finalCollectionName,
+                    new ArrayList<>(fields),
+                    filter,
+                    finalPatterns,
+                    pathSystem);
+              }
+            };
+        completionService.submit(task);
       }
+
+      for (int i = 0; i < collectionToFields.size(); i++) {
+        try {
+          Future<List<cn.edu.tsinghua.iginx.vectordb.entity.Column>> future =
+              completionService.take(); // 阻塞等待下一个完成的任务
+          columns.addAll(future.get());
+        } catch (InterruptedException | ExecutionException e) {
+          LOGGER.error("Error retrieving task result: ", e);
+        }
+      }
+
       return new TaskExecuteResult(new VectorDBQueryRowStream(columns, filter), null);
     } catch (Exception e) {
       LOGGER.error("unexpected error: ", e);
@@ -508,6 +528,47 @@ public class MilvusStorage implements IStorage {
               String.format("execute project task in milvus failure, %s", e)));
     }
   }
+
+  //  private TaskExecuteResult executeProjectDummyWithFilter(Project project, Filter filter) {
+  //    try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
+  //      MilvusClientV2 client = milvusClient.getClient();
+  //      if (client == null) {
+  //        return new TaskExecuteResult(
+  //                new PhysicalTaskExecuteFailureException(String.format("cannot connect to
+  // milvus")));
+  //      }
+  //      List<String> patterns = project.getPatterns();
+  //      if (patterns == null) {
+  //        patterns = Arrays.asList("*");
+  //      }
+  //      PathSystem pathSystem = pathSystemMap.computeIfAbsent("", s -> new MilvusPathSystem(""));
+  //      Map<String, Set<String>> collectionToFields =
+  //              MilvusClientUtils.determinePaths(
+  //                      client, patterns, project.getTagFilter(), true, pathSystem);
+  //      List<cn.edu.tsinghua.iginx.vectordb.entity.Column> columns = new ArrayList<>();
+  //      for (Map.Entry<String, Set<String>> entry : collectionToFields.entrySet()) {
+  //        String collectionName = entry.getKey();
+  //        String databaseName = collectionName.substring(0, collectionName.indexOf("."));
+  //        collectionName = collectionName.substring(collectionName.indexOf(".") + 1);
+  //        Set<String> fields = entry.getValue();
+  //        columns.addAll(
+  //                MilvusClientUtils.query(
+  //                        client,
+  //                        databaseName,
+  //                        collectionName,
+  //                        new ArrayList<>(fields),
+  //                        filter,
+  //                        patterns,
+  //                        pathSystem));
+  //      }
+  //      return new TaskExecuteResult(new VectorDBQueryRowStream(columns, filter), null);
+  //    } catch (Exception e) {
+  //      LOGGER.error("unexpected error: ", e);
+  //      return new TaskExecuteResult(
+  //              new PhysicalTaskExecuteFailureException(
+  //                      String.format("execute project task in milvus failure, %s", e)));
+  //    }
+  //  }
 
   @Override
   public boolean isSupportProjectWithSelect() {
@@ -614,7 +675,7 @@ public class MilvusStorage implements IStorage {
                     pathSystem.deletePath(
                         PathUtils.getPathUnescaped(databaseName, collectionName, ""));
                     return MilvusClientUtils.dropCollection(
-                        c.getClient(), collectionName, entry.getValue());
+                        c.getClient(), databaseName, collectionName, entry.getValue());
                   }
                 };
             completionService.submit(task);
@@ -648,7 +709,8 @@ public class MilvusStorage implements IStorage {
                   long r = 0;
                   for (KeyRange keyRange : delete.getKeyRanges()) {
                     long deletedCount =
-                        deleteByRange(c.getClient(), collectionName, keyRange, pathSystem);
+                        deleteByRange(
+                            c.getClient(), databaseName, collectionName, keyRange, pathSystem);
                     r += deletedCount;
                     LOGGER.info(
                         "delete by range : {} {} {} {}",
