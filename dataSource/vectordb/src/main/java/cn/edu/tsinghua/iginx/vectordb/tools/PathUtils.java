@@ -38,8 +38,13 @@ public class PathUtils {
   public static PathSystem getPathSystem(MilvusClientV2 client, PathSystem pathSystem)
       throws UnsupportedEncodingException {
     if (!pathSystem.inited()) {
-      init(client, pathSystem);
+      synchronized (pathSystem.getDatabaseName().intern()) {
+        if (!pathSystem.inited()) {
+          init(client, pathSystem);
+        }
+      }
     }
+
     return pathSystem;
   }
 
@@ -54,8 +59,7 @@ public class PathUtils {
     }
     for (String collectionName : client.listCollections().getCollectionNames()) {
       Map<String, DataType> paths =
-          MilvusClientUtils.getCollectionPaths(
-              client, escapedDatabaseName, collectionName, pathSystem);
+          MilvusClientUtils.getCollectionPaths(client, escapedDatabaseName, collectionName);
       paths
           .keySet()
           .forEach(
@@ -65,7 +69,7 @@ public class PathUtils {
     }
   }
 
-  private static synchronized void init(MilvusClientV2 client, PathSystem pathSystem)
+  private static void init(MilvusClientV2 client, PathSystem pathSystem)
       throws UnsupportedEncodingException {
     if (!"".equals(pathSystem.getDatabaseName())) {
       String databaseName = pathSystem.getDatabaseName();
@@ -81,7 +85,7 @@ public class PathUtils {
     pathSystem.setInited(true);
   }
 
-  public static void initAll(MilvusClientV2 client, MilvusStorage storage) {
+  public static void initStorage(MilvusClientV2 client, MilvusStorage storage) {
     for (String databaseName : MilvusClientUtils.listDatabase(client)) {
       try {
         PathSystem pathSystem;
