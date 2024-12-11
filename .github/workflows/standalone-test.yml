@@ -27,8 +27,7 @@ on:
                 description: "The database to run the test on"
                 type: string
                 required: false
-                default: '["VectorDB"]'
-#                default: '["IoTDB12", "InfluxDB", "FileSystem", "PostgreSQL", "Redis", "MongoDB", "MySQL", "VectorDB"]'
+                default: '["IoTDB12", "InfluxDB", "FileSystem", "PostgreSQL", "Redis", "MongoDB", "MySQL", "VectorDB"]'
 
 jobs:
     Union-DB-Test:
@@ -186,9 +185,3 @@ jobs:
               shell: bash
               run: |
                   cat iginx-*.log
-
-            - if: runner.os == 'macOS'
-              name: Show docker logs
-              shell: bash
-              run: |
-                  docker-compose logs
