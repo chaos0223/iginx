@@ -92,7 +92,6 @@ runs:
               sed -i"" -e "s/127.0.0.1#19530/${MILVUS_HOST}#19530/g" conf/config.properties
               sleep 30
               docker ps
-              netstat -lnp|grep 2379
               if netstat -an | grep -q ".*:2379.*LISTEN"; then
                 echo "Port 2379 is open."
               else
