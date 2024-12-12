@@ -92,4 +92,6 @@ runs:
               sed -i"" -e "s/127.0.0.1#19530/${MILVUS_HOST}#19530/g" conf/config.properties
               sleep 30
               docker ps
+              ipconfig
+              netstat -lnp|grep 2379
               docker-compose -f 19530/docker-compose-19530.yml logs
