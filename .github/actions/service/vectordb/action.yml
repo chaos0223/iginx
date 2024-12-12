@@ -93,4 +93,9 @@ runs:
               sleep 30
               docker ps
               netstat -lnp|grep 2379
+              if netstat -an | grep -q ".*:2379.*LISTEN"; then
+                echo "Port 2379 is open."
+              else
+                echo "Port 2379 is not open."
+              fi
               docker-compose -f 19530/docker-compose-19530.yml logs
