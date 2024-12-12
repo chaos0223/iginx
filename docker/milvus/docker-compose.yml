@@ -60,7 +60,7 @@ services:
     security_opt:
       - seccomp:unconfined
     environment:
-      ETCD_ENDPOINTS: etcd:2379
+      ETCD_ENDPOINTS: host.docker.internal:2379
       MINIO_ADDRESS: minio:9000
     volumes:
       - /volumes/milvus:/var/lib/milvus
