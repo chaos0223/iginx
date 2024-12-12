@@ -29,6 +29,10 @@ inputs:
         description: "Redis ports"
         required: false
         default: 6379
+    VectorDB-ports:
+        description: "VectorDB ports"
+        required: false
+        default: 19530
 
 runs:
     using: "composite" # Mandatory parameter
@@ -188,23 +192,14 @@ runs:
               paths: conf/config.properties
               statements: s|^#storageEngineList=127.0.0.1#3306#relational#engine=mysql#username=root#password=mysql#has_data=false#meta_properties_path=your-meta-properties-path|storageEngineList=127.0.0.1#3306#relational#engine=mysql#username=root#has_data=false#meta_properties_path=${{ steps.mysql-properties.outputs.path }}|g
 
-        - if: inputs.DB-name=='VectorDB' && runner.os != 'macOS'
+        - if: inputs.DB-name=='VectorDB'
           name: Run Milvus DB
           uses: ./.github/actions/service/vectordb
           with:
               stop: false
               clean: false
               start: true
-              ports: 19530 19531 19532
-
-        - if: inputs.DB-name=='VectorDB' && runner.os == 'macOS'
-          name: Run Milvus DB on MacOS
-          uses: ./.github/actions/service/vectordb
-          with:
-              stop: false
-              clean: false
-              start: true
-              ports: 19530
+              ports: ${{ inputs.VectorDB-ports }}
 
         - if: inputs.DB-name=='VectorDB'
           name: Modify IGinX Config
