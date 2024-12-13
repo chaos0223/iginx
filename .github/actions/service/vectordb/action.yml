@@ -97,4 +97,5 @@ runs:
               else
                 echo "Port 2379 is not open."
               fi
+              sudo lsof -i :2379
               docker-compose -f 19530/docker-compose-19530.yml logs
