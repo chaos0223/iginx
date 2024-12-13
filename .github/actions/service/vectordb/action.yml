@@ -97,5 +97,7 @@ runs:
               else
                 echo "Port 2379 is not open."
               fi
+              echo "MILVUS_HOST=${MILVUS_HOST}"
               sudo lsof -i :2379
+              echo "lsof command executed successfully."
               docker-compose -f 19530/docker-compose-19530.yml logs
