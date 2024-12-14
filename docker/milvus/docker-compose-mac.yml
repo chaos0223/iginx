@@ -60,8 +60,10 @@ services:
     security_opt:
       - seccomp:unconfined
     environment:
-      ETCD_ENDPOINTS: host.docker.internal:2379
+      ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9000
+    cpus: '1.0'
+    mem_reservation: 3g
     volumes:
       - /volumes/milvus:/var/lib/milvus
     healthcheck:

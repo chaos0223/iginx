@@ -23,13 +23,13 @@ runs:
           shell: bash
           run: exit 1
 
-        - name: First Run etcd | Setup
-          uses: ./.github/actions/setup/etcd
-
-        - name: Start etcd
-          shell: bash
-          working-directory: ${{ github.workspace }}
-          run: nohup etcd >etcd.log 2>&1 & echo $! > etcd.pid
+#        - name: First Run etcd | Setup
+#          uses: ./.github/actions/setup/etcd
+#
+#        - name: Start etcd
+#          shell: bash
+#          working-directory: ${{ github.workspace }}
+#          run: nohup etcd >etcd.log 2>&1 & echo $! > etcd.pid
 
         - name: Setup docker compose
           uses: ./.github/actions/dockerCompose
