@@ -63,7 +63,7 @@ services:
       ETCD_ENDPOINTS: etcd:2379
       MINIO_ADDRESS: minio:9000
     cpus: '1.0'
-    mem_reservation: 3g
+    mem_reservation: 4g
     volumes:
       - /volumes/milvus:/var/lib/milvus
     healthcheck:
