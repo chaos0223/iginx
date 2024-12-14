@@ -110,4 +110,5 @@ runs:
               echo "lsof command executed successfully."
               sudo lsof -i
               echo "lsof1 command executed successfully."
-              docker-compose -f 19530/docker-compose-19530.yml logs
+            
+              docker-compose -f 19530/docker-compose-19530.yml logs | tail -n 3000

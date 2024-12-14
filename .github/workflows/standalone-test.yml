@@ -186,11 +186,4 @@ jobs:
               shell: bash
               run: |
                   cat iginx-*.log
-
-            - name: Show docker logs
-              if: always()
-              shell: bash
-              run: |
-                sudo lsof -i
-                echo "lsof1 command executed successfully."
-                docker ps -a
+                
