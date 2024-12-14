@@ -194,5 +194,3 @@ jobs:
                 sudo lsof -i
                 echo "lsof1 command executed successfully."
                 docker ps -a
-                
-                docker-compose logs
