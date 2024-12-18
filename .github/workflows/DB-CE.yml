@@ -39,7 +39,6 @@ env:
 jobs:
     DB-CE:
         timeout-minutes: 300
-        if: ${{ matrix.DB-name != 'VectorDB' || matrix.os == 'windows-latest' }}
         strategy:
             fail-fast: false
             matrix:
@@ -49,6 +48,7 @@ jobs:
                 metadata: ${{ fromJSON(inputs.metadata-matrix) }}
                 DB-name: ${{ fromJSON(inputs.db-matrix) }}
         runs-on: ${{ matrix.os }}
+        if: ${{ matrix.DB-name != 'VectorDB' || matrix.os == 'windows-latest' }}
         env:
             METADATA_STORAGE: ${{ matrix.metadata }}
         steps:
