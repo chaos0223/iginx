@@ -53,7 +53,8 @@ jobs:
         steps:
             - if: ${{ matrix.DB-name == 'VectorDB' && matrix.os != 'windows-latest' }}
               shell: bash
-              run: exit(0)
+              run: |
+                  exit 0
             - uses: actions/checkout@v4
             - name: Environment dependence
               uses: ./.github/actions/dependence
