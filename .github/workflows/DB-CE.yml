@@ -47,14 +47,15 @@ jobs:
                 os: ${{ fromJSON(inputs.os-matrix) }}
                 metadata: ${{ fromJSON(inputs.metadata-matrix) }}
                 DB-name: ${{ fromJSON(inputs.db-matrix) }}
+                exclude:
+                  - DB-name: VectorDB
+                    os: ubuntu-latest
+                  - DB-name: VectorDB
+                    os: macos-latest
         runs-on: ${{ matrix.os }}
         env:
             METADATA_STORAGE: ${{ matrix.metadata }}
         steps:
-            - if: ${{ matrix.DB-name == 'VectorDB' && matrix.os != 'windows-latest' }}
-              shell: bash
-              run: |
-                  exit 0
             - uses: actions/checkout@v4
             - name: Environment dependence
               uses: ./.github/actions/dependence
