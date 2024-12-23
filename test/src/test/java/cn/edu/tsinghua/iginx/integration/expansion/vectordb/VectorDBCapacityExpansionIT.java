@@ -336,7 +336,7 @@ public class VectorDBCapacityExpansionIT extends BaseCapacityExpansionIT {
     String statement = "SHOW COLUMNS dummy.*;";
     String expected =
             "Columns:\n"
-                    + "+-------------------------+--------+\n"
+                    + "+------------------------------+--------+\n"
                     + "|                          Path|DataType|\n"
                     + "+------------------------------+--------+\n"
                     + "|                 dummy.d1.c1.b| BOOLEAN|\n"
