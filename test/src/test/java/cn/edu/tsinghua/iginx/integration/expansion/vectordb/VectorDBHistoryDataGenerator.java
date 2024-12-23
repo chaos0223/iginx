@@ -109,12 +109,23 @@ public class VectorDBHistoryDataGenerator extends BaseHistoryDataGenerator {
   }
 
   public void writeHistoryData(
+          int port,
+          List<String> pathList,
+          List<DataType> dataTypeList,
+          List keyList,
+          List<List<Object>> valuesList,
+          String vectorFieldName) {
+    writeHistoryData(port, pathList, dataTypeList, keyList, valuesList, vectorFieldName, null);
+  }
+
+  public void writeHistoryData(
       int port,
       List<String> pathList,
       List<DataType> dataTypeList,
       List keyList,
       List<List<Object>> valuesList,
-      String vectorFieldName) {
+      String vectorFieldName,
+      List<List<Float>> vectorValuesList) {
     if (StringUtils.isEmpty(vectorFieldName)) {
       vectorFieldName = MILVUS_VECTOR_FIELD_NAME;
     }
@@ -179,9 +190,15 @@ public class VectorDBHistoryDataGenerator extends BaseHistoryDataGenerator {
                   row.addProperty(MILVUS_PRIMARY_FIELD_NAME, String.valueOf(id++));
                 }
               }
-              row.add(
-                  vectorFieldName,
-                  new Gson().toJsonTree(CommonUtils.generateFloatVector(DEFAULT_DIMENSION)));
+              if (vectorValuesList != null && vectorValuesList.size() > i){
+                row.add(
+                        vectorFieldName,
+                        new Gson().toJsonTree(vectorValuesList.get(i)));
+              }else {
+                row.add(
+                        vectorFieldName,
+                        new Gson().toJsonTree(CommonUtils.generateFloatVector(DEFAULT_DIMENSION)));
+              }
               data.add(row);
             }
           }
@@ -211,7 +228,9 @@ public class VectorDBHistoryDataGenerator extends BaseHistoryDataGenerator {
         new ArrayList<>(Collections.singletonList(DataType.FLOAT)),
         Arrays.asList("key1", "key2"),
         Constant.READ_ONLY_FLOAT_VALUES_LIST,
-        "vector");
+        "vector",
+        Arrays.asList(Arrays.asList(1.0f, 2.0f), Arrays.asList(3.0f, 4.0f))
+    );
   }
 
   @Override

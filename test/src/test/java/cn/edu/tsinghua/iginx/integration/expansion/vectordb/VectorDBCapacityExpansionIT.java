@@ -71,8 +71,13 @@ public class VectorDBCapacityExpansionIT extends BaseCapacityExpansionIT {
     List<String> pathList = Constant.READ_ONLY_FLOAT_PATH_LIST;
     List<List<Object>> valuesList = Constant.READ_ONLY_FLOAT_VALUES_LIST;
     SQLTestTools.executeAndCompare(session, statement, pathList, valuesList);
-    statement = "select wt02.float from tm.wf05 where wt02.float = 44.55;";
-    valuesList = Arrays.asList(Arrays.asList(44.55F));
+
+    pathList = Arrays.asList("tm.wf05.wt02.float", "tm.wf05.wt02.vector");
+    statement = "select wt02.float,wt02.vector from tm.wf05 where wt02.float = 44.55;";
+    valuesList = Arrays.asList(Arrays.asList(44.55F), Arrays.asList(Arrays.asList(3.0f,4.0f)));
+    SQLTestTools.executeAndCompare(session, statement, pathList, valuesList);
+    statement = "select * from tm.wf05";
+    valuesList = Arrays.asList(Arrays.asList(22.33F, 44.55F), Arrays.asList(Arrays.asList(1.0f,2.0f),Arrays.asList(3.0f,4.0f)));
     SQLTestTools.executeAndCompare(session, statement, pathList, valuesList);
   }
 }
