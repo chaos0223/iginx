@@ -90,7 +90,7 @@ public class VectorDBCapacityExpansionIT extends BaseCapacityExpansionIT {
     statement = "select wt02.float,wt02.vector from tm.wf05 where wt02.float = 44.55;";
     valuesList = Arrays.asList(Arrays.asList(44.55F, "[3.0, 4.0]"));
     SQLTestTools.executeAndCompare(session, statement, pathList, valuesList);
-    statement = "select * from tm.wf05;";
+    statement = "select * from tm.wf05.wt02;";
     valuesList = Arrays.asList(Arrays.asList(22.33F, "[1.0, 2.0]"), Arrays.asList(44.55F, "[3.0, 4.0]"));
     SQLTestTools.executeAndCompare(session, statement, pathList, valuesList);
   }
