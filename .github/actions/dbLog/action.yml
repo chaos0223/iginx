@@ -27,6 +27,8 @@ runs:
           working-directory: ${{ github.workspace }}
           shell: bash
           run: |
+              docker ps
+              netstat -lnp|grep 1953
               docker-compose -f 19530/docker-compose-19530.yml logs
 
         - if: ${{ inputs.DB-name == 'VectorDB' && runner.os == 'Windows' }}
@@ -34,4 +36,5 @@ runs:
           working-directory: ${{ github.workspace }}
           shell: wsl-run {0}
           run: |
+              docker ps
               docker-compose -f 19530/docker-compose-19530.yml logs
