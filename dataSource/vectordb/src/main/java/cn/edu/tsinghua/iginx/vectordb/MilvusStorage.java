@@ -215,6 +215,7 @@ public class MilvusStorage implements IStorage {
     try (MilvusPoolClient milvusClient = new MilvusPoolClient(this.milvusConnectPool)) {
       MilvusClientV2 client = milvusClient.getClient();
       if (client!=null && client.clientIsReady()){
+        LOGGER.info("milvus test connection is successful.");
         return true;
       }else{
         this.pathSystemMap = new ConcurrentHashMap<>();
