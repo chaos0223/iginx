@@ -586,6 +586,7 @@ public class MilvusStorage implements IStorage {
 
       return new Pair<>(columnsInterval, KeyInterval.getDefaultKeyInterval());
     } catch (Exception e) {
+      this.pathSystemMap = new ConcurrentHashMap<>();
       throw new PhysicalException(String.format("execute query task in milvus failure : %s", e));
     }
   }
@@ -593,6 +594,7 @@ public class MilvusStorage implements IStorage {
   @Override
   public void release() throws PhysicalException {
     LOGGER.info("close milvus client pool ...");
+    this.pathSystemMap = new ConcurrentHashMap<>();
     this.milvusConnectPool.close();
   }
 }
