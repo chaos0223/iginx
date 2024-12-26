@@ -94,7 +94,8 @@ public class MilvusConnectPoolFactory implements PooledObjectFactory<MilvusClien
       config.setConnectTimeoutMs(DEFAULT_MILVUS_CONNECT_TIMEOUT);
       config.setRpcDeadlineMs(DEFAULT_MILVUS_TIMEOUT);
       MilvusClientV2 client = new MilvusClientV2(config);
-      if (client != null) {
+      if (client != null && client.clientIsReady()) {
+        LOGGER.info("成功创建Milvus数据库连接");
         return new DefaultPooledObject<>(client);
       }
       throw new RuntimeException("无法创建Milvus数据库连接");
