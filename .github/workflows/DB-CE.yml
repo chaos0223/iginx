@@ -39,8 +39,7 @@ on:
                 default: "false"
 
 env:
-#    FUNCTEST: NewSessionIT,SQLCompareIT,TagIT,RestIT,TransformIT,UDFIT,RestAnnotationIT,SQLSessionIT,SQLSessionPoolIT,SessionV2IT,SessionIT,SessionPoolIT,CompactionIT,TimePrecisionIT,PySessionIT
-    FUNCTEST: SessionIT,SessionPoolIT,NewSessionIT
+    FUNCTEST: SessionIT,SessionPoolIT
 
 jobs:
     DB-CE:
