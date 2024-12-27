@@ -41,4 +41,3 @@ runs:
           run: |
               docker-compose -f 19530/docker-compose-19530.yml logs | grep -v INFO |grep -v '"info"'
               docker ps
-              docker ps -a
