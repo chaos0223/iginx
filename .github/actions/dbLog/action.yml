@@ -34,6 +34,23 @@ runs:
               du -sh volumes19530/milvus
               docker ps
 
+        - if: ${{ inputs.DB-name == 'VectorDB' && runner.os != 'Windows' }}
+          name: Show Milvus Log19531
+          working-directory: ${{ github.workspace }}
+          shell: bash
+          run: |
+              docker-compose -f 19531/docker-compose-19531.yml logs
+
+        - if: ${{ inputs.DB-name == 'VectorDB' && runner.os != 'Windows' }}
+          name: Show Milvus volumns
+          working-directory: ${{ github.workspace }}
+          shell: bash
+          run: |
+              docker-compose -f 19532/docker-compose-19532.yml logs
+              sudo du -sh volumes19530/milvus
+              sudo du -sh volumes19530/etcd
+              sudo du -sh volumes19530/minio
+
         - if: ${{ inputs.DB-name == 'VectorDB' && runner.os == 'Windows' }}
           name: Show Milvus Log on Windows
           working-directory: ${{ github.workspace }}
