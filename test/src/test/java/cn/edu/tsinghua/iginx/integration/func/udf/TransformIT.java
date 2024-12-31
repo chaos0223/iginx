@@ -631,7 +631,7 @@ public class TransformIT {
       taskInfoList.add(iginxTask);
       taskInfoList.add(pyTask);
 
-      String schedule = "every 10 second";
+      String schedule = "every 20 second";
 
       long jobId = session.commitTransformJob(taskInfoList, ExportType.IginX, "", schedule);
       // make the script add 2 now
