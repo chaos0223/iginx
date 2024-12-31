@@ -32,6 +32,7 @@ runs:
               du -sh volumes19530
               du -sh volumes19530/etcd
               du -sh volumes19530/milvus
+              docker ps
 
         - if: ${{ inputs.DB-name == 'VectorDB' && runner.os == 'Windows' }}
           name: Show Milvus Log on Windows
