@@ -1,0 +1,140 @@
+name: "Capacity-Expansion-Test"
+on:
+    workflow_call:
+        inputs:
+            java-matrix:
+                description: "The java version to run the test on"
+                type: string
+                required: false
+                default: '["8"]'
+            python-matrix:
+                description: "The python version to run the test on"
+                type: string
+                required: false
+                default: '["3.9"]'
+            os-matrix:
+                description: "The operating system to run the test on"
+                type: string
+                required: false
+                default: '["ubuntu-latest", "macos-latest", "windows-latest"]'
+            metadata-matrix:
+                description: "The metadata to run the test on"
+                type: string
+                required: false
+                default: '["zookeeper", "etcd"]'
+            db-matrix:
+                description: "The database to run the test on"
+                type: string
+                required: false
+                default: '["IoTDB12", "InfluxDB", "FileSystem", "PostgreSQL", "Redis", "MongoDB", "MySQL"]'
+            timeout-minutes:
+                description: "The timeout minutes for the job"
+                type: number
+                required: false
+                default: 35
+            close-optimizer:
+                description: "Whether to close the optimizer"
+                type: string
+                required: false
+                default: "false"
+
+env:
+    FUNCTEST: NewSessionIT,SQLCompareIT,TagIT,RestIT,TransformIT,UDFIT,RestAnnotationIT,SQLSessionIT,SQLSessionPoolIT,SessionV2IT,CompactionIT,TimePrecisionIT,PySessionIT
+
+jobs:
+    DB-CE:
+        timeout-minutes: ${{ inputs.timeout-minutes }}
+        strategy:
+            fail-fast: false
+            matrix:
+                java: ${{ fromJSON(inputs.java-matrix) }}
+                python-version: ${{ fromJSON(inputs.python-matrix) }}
+                os: ${{ fromJSON(inputs.os-matrix) }}
+                metadata: ${{ fromJSON(inputs.metadata-matrix) }}
+                DB-name: ${{ fromJSON(inputs.db-matrix) }}
+                test-way:
+                    - "oriHasDataExpHasData"
+                    - "oriNoDataExpNoData"
+                    - "oriHasDataExpNoData"
+                    - "oriNoDataExpHasData"
+                    - "testReadOnly"
+        runs-on: ${{ matrix.os }}
+        env:
+            METADATA_STORAGE: ${{ matrix.metadata }}
+        steps:
+            - uses: actions/checkout@v4
+            - name: Environment dependence
+              uses: ./.github/actions/dependence
+              with:
+                  python-version: ${{ matrix.python-version }}
+                  java: ${{ matrix.java }}
+
+            - name: Run Metadata
+              uses: ./.github/actions/metadataRunner
+              with:
+                  metadata: ${{ matrix.metadata }}
+
+            - name: Run DB
+              uses: ./.github/actions/dbRunner
+              with:
+                  DB-name: ${{ matrix.DB-name }}
+                  IoTDB12-ports: 6667 6668 6669
+                  InfluxDB-ports: 8086 8087 8088
+                  MongoDB-ports: 27017 27018 27019
+                  MySQL-ports: 3306 3307 3308
+                  PostgreSQL-ports: 5432 5433 5434
+                  Redis-ports: 6379 6380 6381
+                  VectorDB-ports: 19530 19531 19532
+
+            - name: Install IGinX with Maven
+              shell: bash
+              run: mvn clean package -DskipTests -P-format -q
+
+            - name: Change IGinX config
+              uses: ./.github/actions/confWriter
+              with:
+                  DB-name: ${{ matrix.DB-name }}
+                  Close-Optimizer: ${{ inputs.close-optimizer }}
+                  Metadata: ${{ matrix.metadata }}
+                  Read-Only: "${{ matrix.test-way == 'testReadOnly' }}"
+                  if-CapExp: true
+                  Test-Way: ${{ matrix.test-way }}
+
+            - name: Write DB history data
+              shell: bash
+              run: mvn test -q -Dtest=${{ matrix.DB-name }}HistoryDataGenerator#${{ matrix.test-way }} -DfailIfNoTests=false -P-format
+
+            - name: Start IGinX
+              uses: ./.github/actions/iginxRunner
+
+            - name: ${{ matrix.test-way }} IT
+              shell: bash
+              env:
+                  SERVICE_DIR: "/home/runner/work/IGinX/IGinX/.github/actions/service"
+                  SERVICE_DIR_MAC: "/Users/runner/work/IGinX/IGinX/.github/actions/service"
+                  SERVICE_DIR_WIN: "/d/a/IGinX/IGinX/.github/actions/service"
+              run: mvn test -q -Dtest=${{ matrix.DB-name }}CapacityExpansionIT#${{ matrix.test-way }} -DfailIfNoTests=false -P-format
+
+            - name: Clear history data
+              shell: bash
+              run: mvn test -q -Dtest=${{ matrix.DB-name }}HistoryDataGenerator#clearHistoryData -DfailIfNoTests=false -P-format
+
+            - name: ${{ matrix.test-way }} Normal IT
+              shell: bash
+              run: mvn test -q -Dtest=${FUNCTEST} -DfailIfNoTests=false -P-format
+
+            - name: Show IGinX log
+              if: always()
+              shell: bash
+              run: cat iginx-*.log
+
+            - if: always()
+              name: Show DB Logs on Windows
+              uses: ./.github/actions/dbLog
+              with:
+                  DB-name: ${{ matrix.DB-name }}
+
+            - uses: codecov/codecov-action@v1
+              with:
+                  file: ./**/target/site/jacoco/jacoco.xml
+                  name: codecov
