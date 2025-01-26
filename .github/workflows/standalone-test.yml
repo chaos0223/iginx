@@ -181,6 +181,12 @@ jobs:
               run: |
                 cat iginx-*.log
 
+            - if: always()
+              name: Show DB Logs1
+              uses: ./.github/actions/dbLog
+              with:
+                DB-name: ${{ matrix.DB-name }}
+
             - name: Test Client Import File
               if: always()
               shell: bash -el {0}
